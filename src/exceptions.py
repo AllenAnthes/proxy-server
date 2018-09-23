@@ -1,0 +1,2 @@
+class InvalidRequestMethod(Exception):
+    pass
