@@ -8,10 +8,8 @@ import re
 import sys
 
 # pre-compile regex patterns to be used to parse requests
-method_pattern = re.compile(b"([A-Z]+) ")
-address_pattern = re.compile(b"CONNECT (.*?):(.*?) HTTP")
-host_pattern = re.compile(b"Host: (.*?)\r\n")
-page_pattern = re.compile(b'GET (.+?) ')
+request_pattern = re.compile("^(?P<method>GET|HEAD|POST) (?P<resource>.+?) ")
+host_pattern = re.compile("Host: (?P<host>.*?)\r\n")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,23 +46,23 @@ class ProxyServer:
 
         # read the first 1024 bytes of the request so we can parse
         # method, requested resource, etc.
-        data = await reader.read(1024)
-        method_matches = method_pattern.search(data)
+        raw_data = await reader.read(1024)
+        data = raw_data.decode()
+        method_matches = request_pattern.search(data)
 
         host_info = writer.get_extra_info('peername')
         logger.info(f"[*] Incoming request from {host_info} [*]")
 
         # Drop connects if the method can't be parsed or if
         # the client attempts a secure connection
-        if not method_matches or method_matches.group(1).decode() == 'CONNECT':
+        if not method_matches:
             logger.info('[*] Invalid request method. Dropping request. [*]')
             return
 
         # Parse/decode the method and actual requested resource
         # from the raw request bytes
-        method = method_matches.group(1).decode()
-        request_matches = page_pattern.search(data)
-        request = request_matches.group(1).decode()
+        method = method_matches.group('method')
+        request = method_matches.group('resource')
         logger.info(f'[*] Method: {method} [*]')
         logger.info(f'[*] Parsed request: {request} [*]')
 
@@ -77,8 +75,7 @@ class ProxyServer:
                 writer.write(cache_result)
                 return
 
-        host_matches = host_pattern.search(data)
-        host = host_matches.group(1).decode()
+        host = host_pattern.search(data).group('host')
         remote_host = self._get_remote_host(host)
         logger.info(f"[*] Forwarding {host_info} -> {remote_host} [*]")
 
@@ -90,7 +87,7 @@ class ProxyServer:
             remote_reader, remote_writer = await asyncio.open_connection(remote_host, 80)
 
             # send the data from the initial request
-            remote_writer.write(data)
+            remote_writer.write(raw_data)
             await writer.drain()
 
             # Create the pipes in both directions
