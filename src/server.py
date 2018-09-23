@@ -49,22 +49,22 @@ class ProxyServer:
         # read the first 1024 bytes of the request so we can parse
         # method, requested resource, etc.
         data = await reader.read(1024)
-        method = method_pattern.search(data)
+        method_matches = method_pattern.search(data)
 
         host_info = writer.get_extra_info('peername')
         logger.info(f"[*] Incoming request from {host_info} [*]")
 
         # Drop connects if the method can't be parsed or if
         # the client attempts a secure connection
-        if not method or method.group(1).decode() == 'CONNECT':
+        if not method_matches or method_matches.group(1).decode() == 'CONNECT':
             logger.info('[*] Invalid request method. Dropping request. [*]')
             return
 
         # Parse/decode the method and actual requested resource
         # from the raw request bytes
-        method = method.group(1).decode()
-        request = page_pattern.search(data)
-        request = request.group(1).decode()
+        method = method_matches.group(1).decode()
+        request_matches = page_pattern.search(data)
+        request = request_matches.group(1).decode()
         logger.info(f'[*] Method: {method} [*]')
         logger.info(f'[*] Parsed request: {request} [*]')
 
@@ -77,8 +77,8 @@ class ProxyServer:
                 writer.write(cache_result)
                 return
 
-        host = host_pattern.search(data)
-        host = host.group(1).decode()
+        host_matches = host_pattern.search(data)
+        host = host_matches.group(1).decode()
         remote_host = self._get_remote_host(host)
         logger.info(f"[*] Forwarding {host_info} -> {remote_host} [*]")
 
