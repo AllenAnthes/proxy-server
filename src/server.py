@@ -62,13 +62,13 @@ class ProxyServer:
         # Parse/decode the method and actual requested resource
         # from the raw request bytes
         method = method_matches.group('method')
-        request = method_matches.group('resource')
+        requested_resource = method_matches.group('resource')
         logger.info(f'[*] Method: {method} [*]')
-        logger.info(f'[*] Parsed request: {request} [*]')
+        logger.info(f'[*] Parsed request: {requested_resource} [*]')
 
         # If it's a GET request check if we can serve it from cache
-        if method == 'GET' and request is not None:
-            cache_result = self._check_cache(request)
+        if method == 'GET' and requested_resource is not None:
+            cache_result = self._check_cache(requested_resource)
             logger.info(f'[*] Cache hit: {bool(cache_result)} [*]')
             if cache_result:
                 logger.info('[*] Returning result from cache [*]')
@@ -92,7 +92,7 @@ class ProxyServer:
 
             # Create the pipes in both directions
             requests = self._forward(reader, remote_writer)
-            responses = self._forward(remote_reader, writer, request)
+            responses = self._forward(remote_reader, writer, requested_resource)
 
             # Wait until both pipes are finished
             # Using asyncio.gather allows us to run them in parallel
