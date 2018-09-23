@@ -1,17 +1,16 @@
 from asyncio import StreamReader, StreamWriter
+from socket import AF_INET, IPPROTO_TCP
 from collections import defaultdict
-from typing import Optional, Tuple
+from typing import Tuple
 import logging
 import asyncio
-from socket import AF_INET, IPPROTO_TCP
 import re
 import sys
 
 from src.exceptions import InvalidRequestMethod
 
-# pre-compile regex patterns to be used to parse requests
-request_pattern = re.compile("^(?P<method>GET|HEAD|POST) (?P<resource>.+?) ")
-host_pattern = re.compile("Host: (?P<host>.*?)\r\n")
+# pre-compile regex pattern to be used to parse requests
+request_pattern = re.compile("^(?P<method>GET|HEAD|POST) (?P<resource>.+?) [\s\S]*?Host: (?P<host>.*?)\r\n")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -62,8 +61,8 @@ class ProxyServer:
             logger.info(f"[*] Forwarding {host_info} -> {host} [*]")
             to_webserver, to_client = await self._open_remote_connection(host, local_reader, local_writer,
                                                                          raw_data, requested_resource)
-            # Wait until both pipes are finished. Using gather
-            # allows us to start both processes and run them in parallel
+            # Wait until both pipes are finished. Using gather allows
+            # us to start both processes and run them in parallel
             await asyncio.gather(to_webserver, to_client)
 
         except InvalidRequestMethod:
@@ -82,24 +81,16 @@ class ProxyServer:
         :return: The request method, requested resource, and the remote hostname
         """
         data = raw_data.decode()
-        method_matches = request_pattern.search(data)
+        matches = request_pattern.search(data)
 
-        # Drop connection if the method can't be parsed or if
-        # it's unsupported
-        if not method_matches:
+        # Drop connection if the method can't be parsed or if it's unsupported
+        if not matches:
             raise InvalidRequestMethod()
 
-        # Parse/decode the method and actual requested resource
-        # from the raw request bytes
-        method = method_matches.group('method')
-        logger.info(f'[*] Method: {method} [*]')
+        method, resource, host = matches.groupdict().values()
+        logger.info(f'[*] Method: {method} | Requested resource: {resource} [*]')
 
-        requested_resource = method_matches.group('resource')
-        logger.info(f'[*] Requested resource: {requested_resource} [*]')
-
-        host = host_pattern.search(data).group('host')
-
-        return method, requested_resource, host
+        return method, resource, host
 
     @classmethod
     def _check_cache(cls, method: str, requested_resource: str, writer: StreamWriter) -> bool:
