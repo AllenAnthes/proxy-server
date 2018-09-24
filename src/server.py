@@ -144,6 +144,11 @@ class ProxyServer:
     @classmethod
     async def _forward(cls, reader: StreamReader, writer: StreamWriter, request=None) -> None:
         """
+        Pipes the data read from the StreamReader to the StreamWriter.
+
+        If the request URL is provided the data will be cached before it is written
+        back to the client.
+
         :param reader: StreamReader to receive data from
         :param writer: StreamWriter to write data to
         :param request: Optionally provided request URL.  If present the
