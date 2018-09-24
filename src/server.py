@@ -1,4 +1,4 @@
-from asyncio import StreamReader, StreamWriter
+from asyncio import StreamReader, StreamWriter, coroutine
 from socket import AF_INET, IPPROTO_TCP
 from collections import defaultdict
 from typing import Tuple
@@ -118,7 +118,7 @@ class ProxyServer:
 
     @classmethod
     async def _open_remote_connection(cls, host: str, local_reader: StreamReader, local_writer: StreamWriter,
-                                      raw_data: bytes, requested_resource: str):
+                                      raw_data: bytes, requested_resource: str) -> Tuple[coroutine, coroutine]:
         """
         Open a TCP socket with the remote web server as well
         as pipelines to push data in both directions
@@ -128,8 +128,10 @@ class ProxyServer:
         :param local_writer: StreamWriter for the local socket connection
         :param raw_data: The first 1024 (or less) bytes of the request
         :param requested_resource: URL of the requested resource
-        :return:
+        :return to_webserver, to_client: Tuple of the two socket connections as
+                                            coroutines to be run asynchronously
         """
+
         remote_reader, remote_writer = await asyncio.open_connection(host, 80, family=AF_INET, proto=IPPROTO_TCP)
 
         # send the data from the initial request
