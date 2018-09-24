@@ -10,6 +10,8 @@ import sys
 from src.exceptions import InvalidRequestMethod
 
 # pre-compile regex pattern to be used to parse requests
+# contains named capture groups for the request method, requested resource URL,
+# and the value of the Host header
 request_pattern = re.compile("^(?P<method>GET|HEAD|POST) (?P<resource>.+?) [\s\S]*?Host: (?P<host>.*?)\r\n")
 
 logging.basicConfig(
