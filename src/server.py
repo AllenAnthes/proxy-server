@@ -7,8 +7,6 @@ import asyncio
 import re
 import sys
 
-from src.exceptions import InvalidRequestMethod
-
 # pre-compile regex pattern to be used to parse requests
 request_pattern = re.compile("^(?P<method>GET|HEAD|POST) (?P<resource>.+?) [\s\S]*?Host: (?P<host>.*?)\r\n")
 
@@ -160,6 +158,10 @@ class ProxyServer:
             logger.exception(f'[!] Exception during forwarding {e} [!]')
         finally:
             writer.close()
+
+
+class InvalidRequestMethod(Exception):
+    pass
 
 
 if __name__ == '__main__':
