@@ -1,4 +1,4 @@
-from asyncio import StreamReader, StreamWriter
+from asyncio import StreamReader, StreamWriter, coroutine
 from socket import AF_INET, IPPROTO_TCP
 from collections import defaultdict
 from typing import Tuple
@@ -8,6 +8,8 @@ import re
 import sys
 
 # pre-compile regex pattern to be used to parse requests
+# contains named capture groups for the request method, requested resource URL,
+# and the value of the Host header
 request_pattern = re.compile("^(?P<method>GET|HEAD|POST) (?P<resource>.+?) [\s\S]*?Host: (?P<host>.*?)\r\n")
 
 logging.basicConfig(
@@ -116,7 +118,7 @@ class ProxyServer:
 
     @classmethod
     async def _open_remote_connection(cls, host: str, local_reader: StreamReader, local_writer: StreamWriter,
-                                      raw_data: bytes, requested_resource: str):
+                                      raw_data: bytes, requested_resource: str) -> Tuple[coroutine, coroutine]:
         """
         Open a TCP socket with the remote web server as well
         as pipelines to push data in both directions
@@ -126,8 +128,10 @@ class ProxyServer:
         :param local_writer: StreamWriter for the local socket connection
         :param raw_data: The first 1024 (or less) bytes of the request
         :param requested_resource: URL of the requested resource
-        :return:
+        :return to_webserver, to_client: Tuple of the two socket connections as
+                                            coroutines to be run asynchronously
         """
+
         remote_reader, remote_writer = await asyncio.open_connection(host, 80, family=AF_INET, proto=IPPROTO_TCP)
 
         # send the data from the initial request
@@ -142,6 +146,11 @@ class ProxyServer:
     @classmethod
     async def _forward(cls, reader: StreamReader, writer: StreamWriter, request=None) -> None:
         """
+        Pipes the data read from the StreamReader to the StreamWriter.
+
+        If the request URL is provided the data will be cached before it is written
+        back to the client.
+
         :param reader: StreamReader to receive data from
         :param writer: StreamWriter to write data to
         :param request: Optionally provided request URL.  If present the
