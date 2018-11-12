@@ -35,7 +35,10 @@ class ProxyServer:
         coroutine = asyncio.start_server(self.handle_client, self.host, self.port)
         server = loop.run_until_complete(coroutine)
         logger.info(f'Serving on {server.sockets[0].getsockname()}')
-        loop.run_forever()
+        try:
+            loop.run_forever()
+        except KeyboardInterrupt:
+            logger.info('[*] KeyboardInterrupt detected -- Stopping server [*]')
 
     async def handle_client(self, local_reader: StreamReader, local_writer: StreamWriter) -> None:
         """
@@ -80,7 +83,10 @@ class ProxyServer:
         :param raw_data: Bytes containing the client's request
         :return: The request method, requested resource, and the remote hostname
         """
-        data = raw_data.decode()
+        try:
+            data = raw_data.decode()
+        except UnicodeDecodeError:
+            raise InvalidRequestMethod()
         matches = request_pattern.search(data)
 
         # Drop connection if the method can't be parsed or if it's unsupported
